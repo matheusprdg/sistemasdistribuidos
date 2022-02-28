@@ -12,3 +12,4 @@ bld/
 .vscode/
 Dockerfile
 .dockerignore
+.bak
