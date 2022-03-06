@@ -9,23 +9,29 @@ namespace ServidorWorker
         private readonly IServidorEspecializadoProvider _servidorEspecializadoProvider;
         private readonly IServidorEspecializadoRequestFactory _servidorEspecializadoRequestFactory;
         private readonly IResponseGetter _responseGetter;
+        private readonly IConfiguration _configuration;
         private readonly CalculoInputValidator _inputValidator;
 
         public ServidorWorkerService(
             ICalculadoraProvider calculadoraProvider,
             IServidorEspecializadoProvider servidorEspecializadoProvider,
             IServidorEspecializadoRequestFactory servidorEspecializadoRequestFactory,
-            IResponseGetter responseGetter)
+            IResponseGetter responseGetter,
+            IWebHostEnvironment webHostEnvironment,
+            IConfiguration configuration)
         {
             _calculadoraProvider = calculadoraProvider;
             _servidorEspecializadoProvider = servidorEspecializadoProvider;
             _servidorEspecializadoRequestFactory = servidorEspecializadoRequestFactory;
             _responseGetter = responseGetter;
+            _configuration = configuration;
             _inputValidator = new CalculoInputValidator();
         }
 
         public async Task<IResponseOutput> Execute(IRequestInput input)
         {
+            var projectRootPath = _configuration.GetValue<string>("CaminhoArquivosServidores");
+
             try
             {
                 _inputValidator.ValidateAndThrow(input);
@@ -42,7 +48,7 @@ namespace ServidorWorker
                     };
                 }
 
-                var servidorEspecializado = _servidorEspecializadoProvider.Obter((TipoOperacao)input.TipoOperacao);
+                var servidorEspecializado = _servidorEspecializadoProvider.Obter(projectRootPath, (TipoOperacao)input.TipoOperacao);
 
                 var request = _servidorEspecializadoRequestFactory.CreateRequest(servidorEspecializado, input);
                 var resposta = await _responseGetter.ObterResposta(request);

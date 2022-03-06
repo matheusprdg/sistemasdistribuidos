@@ -1,29 +1,67 @@
+using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace SistemasDistribuidos.Application
 {
     public class ServidorEscravoProvider : IServidorEscravoProvider
     {
-        public IServidorEscravo Obter(int id)
+        private const string NomeArquivoServidorEscravo = "ServidoresEscravos.txt";
+        private const string NomeArquivoServidorWorker = "ServidoresWorkers.txt";
+
+        public int ObterQuantidadeServidores(string pasta, string rootPath)
         {
-            var types = AppDomain.CurrentDomain
-                .GetAssemblies()
-                .SelectMany(f => f.GetTypes())
-                .Where(f => typeof(IServidorEscravo).IsAssignableFrom(f) && !f.IsAbstract && !f.IsInterface);
+            var servidores = ObterServidores(pasta, rootPath);
+            return servidores.Count();
+        }
 
-            foreach (var type in types)
+        public IServidorEscravo Obter(int id, string pasta, string rootPath)
+        {
+            var servidoresEscravos = this.ObterServidores(pasta, rootPath);
+
+            var servidorEscravo = servidoresEscravos.FirstOrDefault(x => x.Compativel(id));
+
+            if (servidorEscravo is null)
             {
-                var handler = Activator.CreateInstance(type) as IServidorEscravo;
+                throw new Exception($"Servidor de id {id} não encontrado.");
+            }
+            
+            return servidorEscravo;
+        }
 
-                if (handler is IServidorEscravo
-                    && handler.Compativel(id))
-                {
-                    return handler;
-                }
+        public IEnumerable<IServidorEscravo> ObterServidores(string pasta, string rootPath)
+        {
+            var arquivoUsar =
+                pasta.Equals("escravo", StringComparison.InvariantCultureIgnoreCase)
+                ? NomeArquivoServidorEscravo
+                : NomeArquivoServidorWorker;
+
+            var path = Path.Combine(rootPath, pasta, arquivoUsar);
+
+            if (!File.Exists(path))
+            {
+                throw new Exception("Arquivo dos servidores não econtrado.");
             }
 
-            throw new Exception("Servidor não encontrado.");
+            string content = File.ReadAllText(path);
+
+            var servidores = JsonConvert.DeserializeObject<IEnumerable<ServidorEscravo>>(content);
+
+            if (!servidores.Any())
+            {
+                throw new Exception("Nenhum servidor encontrado.");
+            }
+
+            foreach (var servidor in servidores)
+            {
+                yield return new ServidorEscravo
+                {
+                    Id = servidor.Id,
+                    Porta = servidor.Porta,
+                };
+            }
         }
     }
 }

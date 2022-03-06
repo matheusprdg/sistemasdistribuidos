@@ -1,29 +1,44 @@
+using Newtonsoft.Json;
 using System;
-using System.Linq;
+using System.IO;
 
 namespace SistemasDistribuidos.Application
 {
     public class ServidorEspecializadoProvider : IServidorEspecializadoProvider
     {
-        public IServidorEspecializado Obter(TipoOperacao tipoOperacao)
+        private const string NomeArquivoServidorPotencia = "ServidorPotencia.txt";
+        private const string NomeArquivoServidorRaizQuadrada = "ServidorRaizQuadrada.txt";
+
+        public IServidorEspecializado Obter(string rootPath, TipoOperacao tipoOperacao)
         {
-            var types = AppDomain.CurrentDomain
-                .GetAssemblies()
-                .SelectMany(f => f.GetTypes())
-                .Where(f => typeof(IServidorEspecializado).IsAssignableFrom(f) && !f.IsAbstract && !f.IsInterface);
+            return this.ObterServidor(rootPath, tipoOperacao);
+        }
 
-            foreach (var type in types)
+        public IServidorEspecializado ObterServidor(string rootPath, TipoOperacao tipoOperacao)
+        {
+            var arquivoUsar = tipoOperacao == TipoOperacao.Potencia
+                ? NomeArquivoServidorPotencia
+                : NomeArquivoServidorRaizQuadrada;
+
+            var pasta = "Especializados";
+
+            var path = Path.Combine(rootPath, pasta, arquivoUsar);
+
+            if (!File.Exists(path))
             {
-                var handler = Activator.CreateInstance(type) as IServidorEspecializado;
-
-                if (handler is IServidorEspecializado
-                    && handler.TipoOperacao == tipoOperacao)
-                {
-                    return handler;
-                }
+                throw new Exception("Arquivo do servidor não econtrado.");
             }
 
-            throw new Exception("Servidor especializado não encontrado.");
+            string content = File.ReadAllText(path);
+
+            var servidor = JsonConvert.DeserializeObject<ServidorEspecializado>(content);
+
+            if (servidor is null)
+            {
+                throw new Exception("Servidor não encontrado");
+            }
+
+            return new ServidorEspecializado { Porta = servidor.Porta };
         }
     }
 }
